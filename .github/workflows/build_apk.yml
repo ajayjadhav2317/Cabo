@@ -35,25 +35,29 @@ jobs:
             libncurses-dev cmake libffi-dev \
             libssl-dev automake autopoint gettext ccache
 
-      - name: Install Buildozer and Cython
+      - name: Configure pip constraints and dependencies
         run: |
-          pip install --upgrade pip
+          echo "pip<25.0" > ${{ github.workspace }}/constraints.txt
+          echo "setuptools<70.0" >> ${{ github.workspace }}/constraints.txt
+          pip install "pip<25.0"
           pip install "cython<3.0.0" buildozer virtualenv
 
-      - name: Cache Buildozer downloads
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.buildozer
-            .buildozer
-          key: ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}
-          restore-keys: |
-            ${{ runner.os }}-buildozer-
+      - name: Ensure develop branch for python-for-android
+        run: |
+          python3 -c '
+          with open("buildozer.spec", "r") as f:
+              s = f.read()
+          if "p4a.branch" not in s:
+              s = s.replace("requirements = python3,pygame-ce", "requirements = python3,pygame-ce\np4a.branch = develop")
+              with open("buildozer.spec", "w") as f:
+                  f.write(s)
+          '
 
       - name: Build with Buildozer
         env:
           APP_ANDROID_ACCEPT_SDK_LICENSE: '1'
           PYTHONFORANDROID_PREREQUISITES_INSTALL_INTERACTIVE: '0'
+          PIP_CONSTRAINT: ${{ github.workspace }}/constraints.txt
         run: |
           buildozer -v android debug
 
